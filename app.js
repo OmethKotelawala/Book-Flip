@@ -24,9 +24,9 @@
   const state = {
     pdfDoc: null,
     totalPages: 0,
-    currentPage: 1, // in spread mode, currentPage represents the left page of spread (or 1 for cover)
-    isSingleSpread: false, // auto-detected or manual override
-    userForcedSingle: false,
+    currentPage: 1, // Current active page (1-based index)
+    isSingleSpread: true, // Single page mobile layout is active
+    userForcedSingle: true,
     zoomLevel: 1.0,
     panX: 0,
     panY: 0,
@@ -228,35 +228,36 @@
      Layout & Geometry Calculations
      -------------------------------------------------------------------------- */
   function checkResponsiveLayout() {
-    const isMobile = window.innerWidth <= 840;
-    if (isMobile || state.userForcedSingle) {
-      state.isSingleSpread = true;
-      els.book.classList.add('single-mode');
-    } else {
-      state.isSingleSpread = false;
-      els.book.classList.remove('single-mode');
-    }
+    state.isSingleSpread = true;
+    els.book.classList.add('single-mode');
     updateDimensions();
   }
 
   function updateDimensions() {
-    const stageH = els.stage.clientHeight - 40;
-    const stageW = els.stage.clientWidth - 80;
-    const targetH = Math.min(stageH, 860);
+    const isMobile = window.innerWidth <= 768;
+    const isVerySmall = window.innerWidth <= 480;
+    const stageH = els.stage.clientHeight - (isMobile ? (isVerySmall ? 20 : 28) : 48);
+    const stageW = els.stage.clientWidth - (isMobile ? (isVerySmall ? 14 : 24) : 64);
+    const targetH = Math.min(stageH, isMobile ? 760 : 860);
     const aspect = 0.707; // A4 aspect
     const singleW = targetH * aspect;
 
-    if (!state.isSingleSpread && singleW * 2 > stageW) {
-      // Fit spread width inside viewport
-      const fitSingleW = (stageW * 0.95) / 2;
-      const fitH = fitSingleW / aspect;
-      document.documentElement.style.setProperty('--book-height', `${Math.round(fitH)}px`);
-    } else if (state.isSingleSpread && singleW > stageW) {
-      const fitSingleW = stageW * 0.92;
-      const fitH = fitSingleW / aspect;
-      document.documentElement.style.setProperty('--book-height', `${Math.round(fitH)}px`);
+    if (state.isSingleSpread) {
+      if (singleW > stageW) {
+        const fitSingleW = stageW * (isMobile ? 0.96 : 0.92);
+        const fitH = fitSingleW / aspect;
+        document.documentElement.style.setProperty('--book-height', `${Math.round(fitH)}px`);
+      } else {
+        document.documentElement.style.setProperty('--book-height', `${Math.round(targetH)}px`);
+      }
     } else {
-      document.documentElement.style.setProperty('--book-height', `${Math.round(targetH)}px`);
+      if (singleW * 2 > stageW) {
+        const fitSingleW = (stageW * 0.95) / 2;
+        const fitH = fitSingleW / aspect;
+        document.documentElement.style.setProperty('--book-height', `${Math.round(fitH)}px`);
+      } else {
+        document.documentElement.style.setProperty('--book-height', `${Math.round(targetH)}px`);
+      }
     }
   }
 
@@ -312,9 +313,10 @@
      Rendering Engine (with High-DPI Canvas Cache)
      -------------------------------------------------------------------------- */
   async function renderPageToCanvas(pageNum, canvas) {
-    if (!state.pdfDoc || pageNum < 1 || pageNum > state.totalPages) {
+    if (!state.pdfDoc || !pageNum || pageNum < 1 || pageNum > state.totalPages) {
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fcfbfa';
+      ctx.fillRect(0, 0, canvas.width || 400, canvas.height || 600);
       return;
     }
 
@@ -349,23 +351,30 @@
 
   // Render the current active spread onto stage canvases
   async function renderCurrentSpread() {
-    const isCover = (state.currentPage === 1) && !state.isSingleSpread;
-    const isEnd = (state.currentPage === state.totalPages && state.totalPages > 1) && !state.isSingleSpread;
+    const isCover = (state.currentPage === 1);
+    const isEnd = (state.currentPage === state.totalPages && state.totalPages > 1);
 
-    if (isCover) {
+    if (state.isSingleSpread) {
+      els.book.classList.add('single-mode');
+      els.book.classList.toggle('is-cover-single', isCover);
+      els.book.classList.toggle('is-end-single', isEnd);
+      els.book.classList.remove('is-cover', 'is-end');
+      els.bookViewport.classList.remove('is-cover', 'is-end');
+      els.book.style.transform = 'translateX(0%)';
+    } else if (isCover) {
       els.book.classList.add('is-cover');
-      els.book.classList.remove('is-end');
+      els.book.classList.remove('is-end', 'is-cover-single', 'is-end-single');
       els.bookViewport.classList.add('is-cover');
       els.bookViewport.classList.remove('is-end');
       els.book.style.transform = 'translateX(-25%)';
     } else if (isEnd) {
       els.book.classList.add('is-end');
-      els.book.classList.remove('is-cover');
+      els.book.classList.remove('is-cover', 'is-cover-single', 'is-end-single');
       els.bookViewport.classList.add('is-end');
       els.bookViewport.classList.remove('is-cover');
       els.book.style.transform = 'translateX(25%)';
     } else {
-      els.book.classList.remove('is-cover', 'is-end');
+      els.book.classList.remove('is-cover', 'is-end', 'is-cover-single', 'is-end-single');
       els.bookViewport.classList.remove('is-cover', 'is-end');
       els.book.style.transform = 'translateX(0%)';
     }
@@ -373,7 +382,7 @@
     const [leftNum, rightNum] = getVisiblePageNumbers(state.currentPage);
 
     // Left Page
-    if (leftNum && !isCover) {
+    if (leftNum && !state.isSingleSpread && !isCover) {
       els.pageLeftWrapper.style.visibility = 'visible';
       els.numLeft.textContent = `Page ${leftNum}`;
       els.numLeft.style.display = isEnd ? 'none' : 'block';
@@ -386,10 +395,10 @@
     }
 
     // Right Page
-    if (rightNum && !isEnd) {
+    if (rightNum && (!isEnd || state.isSingleSpread)) {
       els.pageRightWrapper.style.visibility = 'visible';
       els.numRight.textContent = `Page ${rightNum}`;
-      els.numRight.style.display = isCover ? 'none' : 'block';
+      els.numRight.style.display = (isCover || isEnd) ? 'none' : 'block';
       await renderPageToCanvas(rightNum, els.canvasRight);
     } else {
       els.pageRightWrapper.style.visibility = 'hidden';
@@ -421,9 +430,23 @@
 
   // Realistic book stack thickness dynamic adjustment
   function updatePageStacks() {
-    if (state.isSingleSpread) {
+    if (window.innerWidth <= 480) {
       els.stackLeft.style.display = 'none';
       els.stackRight.style.display = 'none';
+      return;
+    }
+
+    if (state.isSingleSpread) {
+      els.stackLeft.style.display = 'none';
+      if (state.currentPage >= state.totalPages) {
+        els.stackRight.style.display = 'none';
+      } else {
+        els.stackRight.style.display = 'block';
+        const progress = state.currentPage / state.totalPages;
+        const rightWidth = Math.max(3, Math.round((1 - progress) * 14));
+        els.stackRight.style.width = `${rightWidth}px`;
+        els.stackRight.style.right = `-${rightWidth}px`;
+      }
       return;
     }
 
@@ -953,22 +976,53 @@
     window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
     window.addEventListener('mouseup', (e) => handleEnd(e.clientX));
 
-    // Touch events for mobile/tablet swipe
+    // Touch events for mobile/tablet swipe, pinch-to-zoom, and double-tap zoom
+    let initialPinchDist = 0;
+    let initialPinchZoom = 1.0;
+    let lastTapTimestamp = 0;
+
     els.stage.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
         handleStart(e.touches[0].clientX, e.touches[0].clientY, 'touch');
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        dragDirection = null;
+        if (els.flipLeaf) els.flipLeaf.style.display = 'none';
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDist = Math.hypot(dx, dy);
+        initialPinchZoom = state.zoomLevel;
       }
     }, { passive: true });
 
     els.stage.addEventListener('touchmove', (e) => {
       if (e.touches.length === 1) {
         handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      } else if (e.touches.length === 2 && initialPinchDist > 0) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const factor = dist / initialPinchDist;
+        applyZoom(initialPinchZoom * factor);
       }
     }, { passive: true });
 
     els.stage.addEventListener('touchend', (e) => {
-      if (e.changedTouches.length === 1) {
+      if (e.changedTouches.length === 1 && initialPinchDist === 0) {
+        const now = performance.now();
+        if (now - lastTapTimestamp < 300) {
+          // Double-tap to zoom or reset on mobile
+          if (state.zoomLevel > 1.0) {
+            applyZoom(1.0);
+          } else {
+            applyZoom(1.8);
+          }
+        }
+        lastTapTimestamp = now;
         handleEnd(e.changedTouches[0].clientX);
+      }
+      if (e.touches.length < 2) {
+        initialPinchDist = 0;
       }
     });
   }

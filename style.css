@@ -613,6 +613,20 @@ html, body {
   justify-content: center;
 }
 
+.book.single-mode .page-right-wrapper {
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.55), 0 3px 12px rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+}
+
+.book.single-mode .page-right {
+  border-radius: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.book.single-mode .spine-shadow-right {
+  display: none !important;
+}
+
 /* Home / Cover Page Centering - Exactly like the uploaded image */
 .book.is-cover:not(.single-mode) {
   transform: translateX(-25%);
@@ -728,7 +742,9 @@ html, body {
 }
 
 .book.is-cover .cover-fullscreen-badge,
-.book.is-end .cover-fullscreen-badge {
+.book.is-end .cover-fullscreen-badge,
+.book.is-cover-single .cover-fullscreen-badge,
+.book.is-end-single .cover-fullscreen-badge {
   display: inline-flex;
 }
 
@@ -875,7 +891,7 @@ html, body {
 
 .book.single-mode .flip-leaf.flip-backward {
   left: 0;
-  transform-origin: right center;
+  transform-origin: left center;
 }
 
 .leaf-face {
@@ -1348,8 +1364,13 @@ html, body {
 }
 
 /* --------------------------------------------------------------------------
-   Responsive Breakpoints
+   Responsive Breakpoints & Mobile Optimization
    -------------------------------------------------------------------------- */
+.stage,
+.book-viewport {
+  touch-action: pan-y pinch-zoom;
+}
+
 @media (max-width: 1024px) {
   :root {
     --book-height: min(72vh, 640px);
@@ -1367,25 +1388,103 @@ html, body {
 
 @media (max-width: 768px) {
   :root {
-    --book-height: min(70vh, 520px);
+    --book-height: min(76vh, 580px);
   }
   .top-bar {
-    padding: 0 12px;
+    padding: 0 10px;
+    padding-top: max(4px, env(safe-area-inset-top));
+    height: 50px;
+  }
+  .brand-badge {
+    padding: 4px 6px;
+    background: transparent;
+    border: none;
   }
   .report-title {
     display: none;
   }
+  .page-nav-pill {
+    padding: 3px 6px;
+    gap: 2px;
+  }
+  .page-label {
+    display: none;
+  }
+  #page-input {
+    width: 32px;
+    font-size: 0.82rem;
+    padding: 2px;
+  }
+  .page-slash {
+    font-size: 0.8rem;
+  }
+  .page-total {
+    font-size: 0.82rem;
+    min-width: 18px;
+  }
+  .btn-icon-subtle {
+    width: 32px;
+    height: 32px;
+  }
+  .btn-icon {
+    width: 34px;
+    height: 34px;
+  }
+  .top-right {
+    gap: 6px;
+  }
+  .bottom-bar {
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+  .bottom-dock {
+    padding: 4px 10px;
+    gap: 6px;
+  }
+  .dock-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .dock-zoom-val {
+    padding: 4px 8px;
+    font-size: 0.78rem;
+  }
   .nav-arrow {
-    padding: 10px;
+    padding: 6px;
   }
   .nav-arrow-left { left: 4px; }
   .nav-arrow-right { right: 4px; }
   .nav-arrow-inner {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+    background: rgba(18, 22, 28, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .nav-arrow-inner svg {
+    width: 22px;
+    height: 22px;
+  }
+  .cover-fullscreen-badge {
+    bottom: 16px;
+    padding: 6px 14px;
+    font-size: 0.75rem;
   }
   .side-panel {
     width: 100vw;
     right: -100vw;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-arrow {
+    opacity: 0.7;
+  }
+  .nav-arrow:hover {
+    opacity: 1;
+  }
+  .corner-fold-hint {
+    display: none;
+  }
+  .page-stack {
+    display: none !important;
   }
 }
