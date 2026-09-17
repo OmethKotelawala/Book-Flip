@@ -52,26 +52,6 @@
       </div>
 
       <div class="top-right">
-        <!-- Search Toggle -->
-        <button id="btn-toggle-search" class="btn-tool" title="Search Text (Ctrl+F / Cmd+F)">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <span class="btn-label">Search</span>
-        </button>
-
-        <!-- Thumbnails Toggle -->
-        <button id="btn-toggle-thumbs" class="btn-tool" title="Thumbnail Overview">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          <span class="btn-label">Pages</span>
-        </button>
-
-        <!-- Table of Contents / Outline -->
-        <button id="btn-toggle-outline" class="btn-tool" title="Table of Contents">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-          <span class="btn-label">Contents</span>
-        </button>
-
-        <div class="divider-v"></div>
-
         <!-- Sound Effect Toggle -->
         <button id="btn-sound" class="btn-icon" title="Toggle Flip Sound">
           <svg id="sound-icon-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
@@ -151,6 +131,11 @@
               <div class="spine-shadow spine-shadow-left"></div>
               <div class="page-highlight"></div>
               <div class="page-num-badge page-num-left" id="num-left"></div>
+              <!-- Fullscreen hint badge for end / back cover page -->
+              <button id="end-fullscreen-badge" class="cover-fullscreen-badge" title="Click to view in fullscreen">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                <span>Click to view in fullscreen</span>
+              </button>
             </div>
           </div>
 
@@ -164,8 +149,16 @@
               <div class="spine-shadow spine-shadow-right"></div>
               <div class="page-highlight"></div>
               <div class="page-num-badge page-num-right" id="num-right"></div>
+              <!-- Fullscreen hint badge matching uploaded cover screenshot -->
+              <button id="cover-fullscreen-badge" class="cover-fullscreen-badge" title="Click to view in fullscreen">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                <span>Click to view in fullscreen</span>
+              </button>
             </div>
           </div>
+
+          <!-- Under-leaf Dynamic Cast Shadow across book spread -->
+          <div id="flip-cast-shadow" class="flip-cast-shadow"></div>
 
           <!-- 3D Dynamic Flipping Leaf Layer -->
           <div id="flip-leaf" class="flip-leaf">
@@ -229,14 +222,6 @@
     <!-- Bottom Floating Dock Toolbar -->
     <footer id="bottom-bar" class="bottom-bar">
       <div class="bottom-dock">
-        <!-- View Mode Toggle (Single Page vs Two Page Spread) -->
-        <button id="btn-toggle-spread" class="dock-btn" title="Toggle Single / Spread View">
-          <svg id="icon-spread-double" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-          <span class="dock-tooltip">Layout Mode</span>
-        </button>
-
-        <div class="dock-divider"></div>
-
         <!-- Zoom Out -->
         <button id="btn-zoom-out" class="dock-btn" title="Zoom Out (-)">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
@@ -253,21 +238,6 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
           <span class="dock-tooltip">Zoom In</span>
         </button>
-
-        <div class="dock-divider"></div>
-
-        <!-- Auto Play / Slideshow -->
-        <button id="btn-autoplay" class="dock-btn" title="Autoplay Slideshow (Space)">
-          <svg id="play-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          <svg id="pause-icon" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-          <span class="dock-tooltip">Auto Flip</span>
-        </button>
-
-        <!-- Download Original PDF -->
-        <a id="btn-download" class="dock-btn" href="https://raw.githubusercontent.com/OmethKotelawala/NSBM-AR/main/NSBM%20AR%202025-2026%20Book%20(1).pdf" target="_blank" download="NSBM-AR-2025-2026.pdf" title="Download PDF">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span class="dock-tooltip">Download PDF</span>
-        </a>
       </div>
     </footer>
 

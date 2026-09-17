@@ -1,0 +1,6 @@
+{
+  "name": "NSBM Annual Report 2025-2026 - Digital 3D Flipbook",
+  "description": "Interactive 3D digital annual report reader with realistic page flips, search, thumbnails, and high-resolution PDF rendering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

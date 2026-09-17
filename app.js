@@ -13,6 +13,7 @@
 
   // Primary and fallback PDF URLs
   const PDF_SOURCES = [
+    '/api/pdf-proxy',
     'https://raw.githubusercontent.com/OmethKotelawala/NSBM-AR/main/NSBM%20AR%202025-2026%20Book%20(1).pdf',
     'NSBM-AR-2025-2026.pdf', // Local offline fallback
     'https://github.com/OmethKotelawala/NSBM-AR/raw/main/NSBM%20AR%202025-2026%20Book%20(1).pdf',
@@ -68,6 +69,7 @@
     numRight: document.getElementById('num-right'),
     stackLeft: document.getElementById('stack-left'),
     stackRight: document.getElementById('stack-right'),
+    flipCastShadow: document.getElementById('flip-cast-shadow'),
     flipLeaf: document.getElementById('flip-leaf'),
     leafFront: document.getElementById('leaf-front'),
     leafBack: document.getElementById('leaf-back'),
@@ -270,6 +272,10 @@
       // Cover page: left is blank, right is Page 1
       return [null, 1];
     }
+    if (page === state.totalPages && state.totalPages > 1) {
+      // End / Back cover page: right is blank, left is the last page
+      return [page, null];
+    }
     if (page % 2 === 1) {
       // If odd page > 1, the spread is (page - 1, page)
       return [page - 1, page];
@@ -343,26 +349,47 @@
 
   // Render the current active spread onto stage canvases
   async function renderCurrentSpread() {
+    const isCover = (state.currentPage === 1) && !state.isSingleSpread;
+    const isEnd = (state.currentPage === state.totalPages && state.totalPages > 1) && !state.isSingleSpread;
+
+    if (isCover) {
+      els.book.classList.add('is-cover');
+      els.book.classList.remove('is-end');
+      els.bookViewport.classList.add('is-cover');
+      els.bookViewport.classList.remove('is-end');
+      els.book.style.transform = 'translateX(-25%)';
+    } else if (isEnd) {
+      els.book.classList.add('is-end');
+      els.book.classList.remove('is-cover');
+      els.bookViewport.classList.add('is-end');
+      els.bookViewport.classList.remove('is-cover');
+      els.book.style.transform = 'translateX(25%)';
+    } else {
+      els.book.classList.remove('is-cover', 'is-end');
+      els.bookViewport.classList.remove('is-cover', 'is-end');
+      els.book.style.transform = 'translateX(0%)';
+    }
+
     const [leftNum, rightNum] = getVisiblePageNumbers(state.currentPage);
 
     // Left Page
-    if (leftNum) {
+    if (leftNum && !isCover) {
       els.pageLeftWrapper.style.visibility = 'visible';
       els.numLeft.textContent = `Page ${leftNum}`;
-      els.numLeft.style.display = 'block';
+      els.numLeft.style.display = isEnd ? 'none' : 'block';
       await renderPageToCanvas(leftNum, els.canvasLeft);
     } else {
-      els.pageLeftWrapper.style.visibility = state.isSingleSpread ? 'none' : 'hidden';
+      els.pageLeftWrapper.style.visibility = 'hidden';
       els.numLeft.style.display = 'none';
       const ctx = els.canvasLeft.getContext('2d');
       ctx.clearRect(0, 0, els.canvasLeft.width, els.canvasLeft.height);
     }
 
     // Right Page
-    if (rightNum) {
+    if (rightNum && !isEnd) {
       els.pageRightWrapper.style.visibility = 'visible';
       els.numRight.textContent = `Page ${rightNum}`;
-      els.numRight.style.display = 'block';
+      els.numRight.style.display = isCover ? 'none' : 'block';
       await renderPageToCanvas(rightNum, els.canvasRight);
     } else {
       els.pageRightWrapper.style.visibility = 'hidden';
@@ -379,7 +406,7 @@
 
   function updateNavigationUI() {
     const [leftNum, rightNum] = getVisiblePageNumbers(state.currentPage);
-    const displayPage = rightNum || leftNum || state.currentPage;
+    const displayPage = (state.currentPage === state.totalPages) ? state.totalPages : (rightNum || leftNum || state.currentPage);
     els.pageInput.value = displayPage;
 
     // Arrow button states
@@ -399,6 +426,25 @@
       els.stackRight.style.display = 'none';
       return;
     }
+
+    if (state.currentPage === 1) {
+      // Home / Cover page: left stack hidden, right stack shows full book block (matches uploaded image)
+      els.stackLeft.style.display = 'none';
+      els.stackRight.style.display = 'block';
+      els.stackRight.style.width = '14px';
+      els.stackRight.style.right = '-14px';
+      return;
+    }
+
+    if (state.currentPage === state.totalPages && state.totalPages > 1) {
+      // End / Back cover page: right stack hidden, left stack shows full book block
+      els.stackRight.style.display = 'none';
+      els.stackLeft.style.display = 'block';
+      els.stackLeft.style.width = '14px';
+      els.stackLeft.style.left = '-14px';
+      return;
+    }
+
     els.stackLeft.style.display = 'block';
     els.stackRight.style.display = 'block';
 
@@ -414,7 +460,7 @@
   }
 
   /* --------------------------------------------------------------------------
-     3D Page Flip Animation Controller
+     3D Page Flip Animation Controller - Realistic Cylindrical Page Curl
      -------------------------------------------------------------------------- */
   async function flipToNext() {
     if (state.isFlipping) return;
@@ -426,6 +472,9 @@
 
     const [curLeft, curRight] = getVisiblePageNumbers(state.currentPage);
     const [nextLeft, nextRight] = getVisiblePageNumbers(targetPage);
+
+    const isStartingFromCover = (state.currentPage === 1) && !state.isSingleSpread;
+    const isLandingOnEnd = (targetPage === state.totalPages && state.totalPages > 1) && !state.isSingleSpread;
 
     // Setup Leaf
     // Leaf Front = current right page (the one peeling away)
@@ -443,30 +492,64 @@
     // Position leaf
     els.flipLeaf.className = 'flip-leaf flip-forward';
     els.flipLeaf.style.display = 'block';
-    els.flipLeaf.style.transform = 'rotateY(0deg)';
-    els.shadowFront.style.opacity = '0';
-    els.shadowBack.style.opacity = '0';
+    if (els.flipCastShadow) {
+      els.flipCastShadow.style.display = 'block';
+    }
 
-    const duration = 580; // ms
+    els.book.style.transition = 'none';
+
+    const duration = 540; // ms for natural, responsive page turning
     const startTime = performance.now();
 
     function animateFlip(now) {
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
-      // Cubic ease in-out
-      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      // Smooth harmonic sinusoidal page turning easing curve
+      const ease = 0.5 - 0.5 * Math.cos(t * Math.PI);
       const angle = -180 * ease;
 
       els.flipLeaf.style.transform = `rotateY(${angle}deg)`;
 
-      // Dynamic shadow calculation
-      const progress = Math.abs(angle) / 180;
-      if (progress <= 0.5) {
-        els.shadowFront.style.opacity = (progress * 2 * 0.4).toFixed(3);
+      if (isStartingFromCover) {
+        // Glide from -25% (cover centered) to 0% (spread centered)
+        const shift = -25 * (1 - ease);
+        els.book.style.transform = `translateX(${shift}%)`;
+      } else if (isLandingOnEnd) {
+        // Glide from 0% (spread centered) to +25% (end page centered)
+        const shift = 25 * ease;
+        els.book.style.transform = `translateX(${shift}%)`;
+      }
+
+      // Dynamic lighting across the turning page surface
+      const arch = Math.sin(ease * Math.PI);
+      if (ease <= 0.5) {
+        els.shadowFront.style.opacity = (arch * 0.42).toFixed(3);
+        els.shadowFront.style.background = `linear-gradient(to right, 
+          rgba(0, 0, 0, 0.12) 0%, 
+          rgba(255, 255, 255, 0.38) ${Math.round(25 + ease * 45)}%, 
+          rgba(0, 0, 0, 0.16) 100%)`;
         els.shadowBack.style.opacity = '0';
+
+        if (els.flipCastShadow) {
+          els.flipCastShadow.style.left = '50%';
+          els.flipCastShadow.style.width = '50%';
+          els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+          els.flipCastShadow.style.background = `linear-gradient(to right, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+        }
       } else {
+        els.shadowBack.style.opacity = (arch * 0.42).toFixed(3);
+        els.shadowBack.style.background = `linear-gradient(to left, 
+          rgba(0, 0, 0, 0.12) 0%, 
+          rgba(255, 255, 255, 0.38) ${Math.round(25 + (1 - ease) * 45)}%, 
+          rgba(0, 0, 0, 0.16) 100%)`;
         els.shadowFront.style.opacity = '0';
-        els.shadowBack.style.opacity = ((1 - progress) * 2 * 0.4).toFixed(3);
+
+        if (els.flipCastShadow) {
+          els.flipCastShadow.style.left = '0';
+          els.flipCastShadow.style.width = '50%';
+          els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+          els.flipCastShadow.style.background = `linear-gradient(to left, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+        }
       }
 
       if (t < 1) {
@@ -475,6 +558,8 @@
         // Complete flip
         state.currentPage = targetPage;
         els.flipLeaf.style.display = 'none';
+        els.flipLeaf.style.transform = 'none';
+        if (els.flipCastShadow) els.flipCastShadow.style.display = 'none';
         renderCurrentSpread();
         state.isFlipping = false;
       }
@@ -494,6 +579,9 @@
     const [curLeft, curRight] = getVisiblePageNumbers(state.currentPage);
     const [prevLeft, prevRight] = getVisiblePageNumbers(targetPage);
 
+    const isLandingOnCover = (targetPage === 1) && !state.isSingleSpread;
+    const isStartingFromEnd = (state.currentPage === state.totalPages && state.totalPages > 1) && !state.isSingleSpread;
+
     // Setup Leaf for backward flip
     // Leaf Back = current left page (lifting up from left)
     // Leaf Front = target prev right page (landing onto right)
@@ -509,28 +597,62 @@
 
     els.flipLeaf.className = 'flip-leaf flip-backward';
     els.flipLeaf.style.display = 'block';
-    els.flipLeaf.style.transform = 'rotateY(-180deg)';
-    els.shadowFront.style.opacity = '0';
-    els.shadowBack.style.opacity = '0';
+    if (els.flipCastShadow) {
+      els.flipCastShadow.style.display = 'block';
+    }
 
-    const duration = 580;
+    els.book.style.transition = 'none';
+
+    const duration = 540;
     const startTime = performance.now();
 
     function animateFlip(now) {
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
-      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const ease = 0.5 - 0.5 * Math.cos(t * Math.PI);
       const angle = -180 + (180 * ease);
 
       els.flipLeaf.style.transform = `rotateY(${angle}deg)`;
 
-      const progress = (180 + angle) / 180;
-      if (progress <= 0.5) {
-        els.shadowBack.style.opacity = (progress * 2 * 0.4).toFixed(3);
+      if (isLandingOnCover) {
+        // Glide from 0% (spread centered) to -25% (cover centered)
+        const shift = -25 * ease;
+        els.book.style.transform = `translateX(${shift}%)`;
+      } else if (isStartingFromEnd) {
+        // Glide from +25% (end page centered) to 0% (spread centered)
+        const shift = 25 * (1 - ease);
+        els.book.style.transform = `translateX(${shift}%)`;
+      }
+
+      const arch = Math.sin(ease * Math.PI);
+      if (ease <= 0.5) {
+        els.shadowBack.style.opacity = (arch * 0.42).toFixed(3);
+        els.shadowBack.style.background = `linear-gradient(to left, 
+          rgba(0, 0, 0, 0.12) 0%, 
+          rgba(255, 255, 255, 0.38) ${Math.round(25 + ease * 45)}%, 
+          rgba(0, 0, 0, 0.16) 100%)`;
         els.shadowFront.style.opacity = '0';
+
+        if (els.flipCastShadow) {
+          els.flipCastShadow.style.left = '0';
+          els.flipCastShadow.style.width = '50%';
+          els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+          els.flipCastShadow.style.background = `linear-gradient(to left, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+        }
       } else {
+        els.shadowFront.style.opacity = (arch * 0.42).toFixed(3);
+        els.shadowFront.style.background = `linear-gradient(to right, 
+          rgba(0, 0, 0, 0.12) 0%, 
+          rgba(255, 255, 255, 0.38) ${Math.round(25 + (1 - ease) * 45)}%, 
+          rgba(0, 0, 0, 0.16) 100%)`;
         els.shadowBack.style.opacity = '0';
-        els.shadowFront.style.opacity = ((1 - progress) * 2 * 0.4).toFixed(3);
+
+        if (els.flipCastShadow) {
+          els.flipCastShadow.style.left = '50%';
+          els.flipCastShadow.style.width = '50%';
+          els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+          els.flipCastShadow.style.background = `linear-gradient(to right, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+        }
       }
 
       if (t < 1) {
@@ -538,6 +660,8 @@
       } else {
         state.currentPage = targetPage;
         els.flipLeaf.style.display = 'none';
+        els.flipLeaf.style.transform = 'none';
+        if (els.flipCastShadow) els.flipCastShadow.style.display = 'none';
         renderCurrentSpread();
         state.isFlipping = false;
       }
@@ -612,12 +736,27 @@
         const progress = Math.max(0, Math.min(1, -deltaX / bookWidth));
         const angle = -180 * progress;
         els.flipLeaf.style.transform = `rotateY(${angle}deg)`;
-        updateInteractiveShadows(progress);
+        if (state.currentPage === 1 && !state.isSingleSpread) {
+          const shift = -25 * (1 - progress);
+          els.book.style.transform = `translateX(${shift}%)`;
+        } else if (getNextPageTarget() === state.totalPages && !state.isSingleSpread) {
+          const shift = 25 * progress;
+          els.book.style.transform = `translateX(${shift}%)`;
+        }
+        updateInteractiveShadows(progress, 'next');
       } else if (dragDirection === 'prev') {
         const progress = Math.max(0, Math.min(1, deltaX / bookWidth));
         const angle = -180 + (180 * progress);
         els.flipLeaf.style.transform = `rotateY(${angle}deg)`;
-        updateInteractiveShadows(1 - progress);
+        const targetPage = getPrevPageTarget();
+        if (targetPage === 1 && !state.isSingleSpread) {
+          const shift = -25 * progress;
+          els.book.style.transform = `translateX(${shift}%)`;
+        } else if (state.currentPage === state.totalPages && !state.isSingleSpread) {
+          const shift = 25 * (1 - progress);
+          els.book.style.transform = `translateX(${shift}%)`;
+        }
+        updateInteractiveShadows(progress, 'prev');
       }
     }
 
@@ -647,6 +786,9 @@
 
     async function setupInteractiveLeaf(dir) {
       els.flipLeaf.style.transition = 'none';
+      if (els.flipCastShadow) {
+        els.flipCastShadow.style.display = 'block';
+      }
       if (dir === 'next') {
         const targetPage = getNextPageTarget();
         const [curLeft, curRight] = getVisiblePageNumbers(state.currentPage);
@@ -670,47 +812,137 @@
       }
     }
 
-    function updateInteractiveShadows(progress) {
-      if (progress <= 0.5) {
-        els.shadowFront.style.opacity = (progress * 2 * 0.4).toFixed(3);
-        els.shadowBack.style.opacity = '0';
+    function updateInteractiveShadows(progress, dir = 'next') {
+      const arch = Math.sin(progress * Math.PI);
+      if (dir === 'next') {
+        if (progress <= 0.5) {
+          els.shadowFront.style.opacity = (arch * 0.42).toFixed(3);
+          els.shadowFront.style.background = `linear-gradient(to right, 
+            rgba(0, 0, 0, 0.12) 0%, 
+            rgba(255, 255, 255, 0.38) ${Math.round(25 + progress * 45)}%, 
+            rgba(0, 0, 0, 0.16) 100%)`;
+          els.shadowBack.style.opacity = '0';
+          if (els.flipCastShadow) {
+            els.flipCastShadow.style.left = '50%';
+            els.flipCastShadow.style.width = '50%';
+            els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+            els.flipCastShadow.style.background = `linear-gradient(to right, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+          }
+        } else {
+          els.shadowBack.style.opacity = (arch * 0.42).toFixed(3);
+          els.shadowBack.style.background = `linear-gradient(to left, 
+            rgba(0, 0, 0, 0.12) 0%, 
+            rgba(255, 255, 255, 0.38) ${Math.round(25 + (1 - progress) * 45)}%, 
+            rgba(0, 0, 0, 0.16) 100%)`;
+          els.shadowFront.style.opacity = '0';
+          if (els.flipCastShadow) {
+            els.flipCastShadow.style.left = '0';
+            els.flipCastShadow.style.width = '50%';
+            els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+            els.flipCastShadow.style.background = `linear-gradient(to left, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+          }
+        }
       } else {
-        els.shadowFront.style.opacity = '0';
-        els.shadowBack.style.opacity = ((1 - progress) * 2 * 0.4).toFixed(3);
+        if (progress <= 0.5) {
+          els.shadowBack.style.opacity = (arch * 0.42).toFixed(3);
+          els.shadowBack.style.background = `linear-gradient(to left, 
+            rgba(0, 0, 0, 0.12) 0%, 
+            rgba(255, 255, 255, 0.38) ${Math.round(25 + progress * 45)}%, 
+            rgba(0, 0, 0, 0.16) 100%)`;
+          els.shadowFront.style.opacity = '0';
+          if (els.flipCastShadow) {
+            els.flipCastShadow.style.left = '0';
+            els.flipCastShadow.style.width = '50%';
+            els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+            els.flipCastShadow.style.background = `linear-gradient(to left, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+          }
+        } else {
+          els.shadowFront.style.opacity = (arch * 0.42).toFixed(3);
+          els.shadowFront.style.background = `linear-gradient(to right, 
+            rgba(0, 0, 0, 0.12) 0%, 
+            rgba(255, 255, 255, 0.38) ${Math.round(25 + (1 - progress) * 45)}%, 
+            rgba(0, 0, 0, 0.16) 100%)`;
+          els.shadowBack.style.opacity = '0';
+          if (els.flipCastShadow) {
+            els.flipCastShadow.style.left = '50%';
+            els.flipCastShadow.style.width = '50%';
+            els.flipCastShadow.style.opacity = (arch * 0.35).toFixed(3);
+            els.flipCastShadow.style.background = `linear-gradient(to right, rgba(0, 0, 0, 0.22) 0%, transparent 75%)`;
+          }
+        }
       }
     }
 
     function completeDragFlip(dir) {
-      els.flipLeaf.style.transition = 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
+      els.flipLeaf.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
       playPaperTurnSound();
       if (dir === 'next') {
         els.flipLeaf.style.transform = 'rotateY(-180deg)';
+        const targetPage = getNextPageTarget();
+        if (state.currentPage === 1 && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+          els.book.style.transform = 'translateX(0%)';
+        } else if (targetPage === state.totalPages && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+          els.book.style.transform = 'translateX(25%)';
+        }
         setTimeout(() => {
-          state.currentPage = getNextPageTarget();
+          state.currentPage = targetPage;
           els.flipLeaf.style.display = 'none';
+          els.flipLeaf.style.transform = 'none';
+          if (els.flipCastShadow) els.flipCastShadow.style.display = 'none';
+          els.book.style.transition = '';
           renderCurrentSpread();
-        }, 300);
+        }, 340);
       } else {
         els.flipLeaf.style.transform = 'rotateY(0deg)';
+        const targetPage = getPrevPageTarget();
+        if (targetPage === 1 && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+          els.book.style.transform = 'translateX(-25%)';
+        } else if (state.currentPage === state.totalPages && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+          els.book.style.transform = 'translateX(0%)';
+        }
         setTimeout(() => {
-          state.currentPage = getPrevPageTarget();
+          state.currentPage = targetPage;
           els.flipLeaf.style.display = 'none';
+          els.flipLeaf.style.transform = 'none';
+          if (els.flipCastShadow) els.flipCastShadow.style.display = 'none';
+          els.book.style.transition = '';
           renderCurrentSpread();
-        }, 300);
+        }, 340);
       }
     }
 
     function cancelDragFlip(dir) {
-      els.flipLeaf.style.transition = 'transform 0.25s ease-out';
+      els.flipLeaf.style.transition = 'transform 0.28s ease-out';
       if (dir === 'next') {
         els.flipLeaf.style.transform = 'rotateY(0deg)';
+        if (state.currentPage === 1 && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.28s ease-out';
+          els.book.style.transform = 'translateX(-25%)';
+        } else if (getNextPageTarget() === state.totalPages && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.28s ease-out';
+          els.book.style.transform = 'translateX(0%)';
+        }
       } else {
         els.flipLeaf.style.transform = 'rotateY(-180deg)';
+        if (state.currentPage === state.totalPages && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.28s ease-out';
+          els.book.style.transform = 'translateX(25%)';
+        } else if (state.currentPage !== 1 && !state.isSingleSpread) {
+          els.book.style.transition = 'transform 0.28s ease-out';
+          els.book.style.transform = 'translateX(0%)';
+        }
       }
       setTimeout(() => {
         els.flipLeaf.style.display = 'none';
+        els.flipLeaf.style.transform = 'none';
+        if (els.flipCastShadow) els.flipCastShadow.style.display = 'none';
+        els.book.style.transition = '';
         renderCurrentSpread();
-      }, 260);
+      }, 290);
     }
 
     // Hotspot Drag Listeners
@@ -967,7 +1199,7 @@
                 const pageIndex = await state.pdfDoc.getPageIndex(dest[0]);
                 goToPage(pageIndex + 1);
                 els.outlinePanel.classList.remove('open');
-                els.btnToggleOutline.classList.remove('active');
+                els.btnToggleOutline?.classList.remove('active');
               }
             }
           });
@@ -994,7 +1226,7 @@
             div.addEventListener('click', () => {
               goToPage(sec.page);
               els.outlinePanel.classList.remove('open');
-              els.btnToggleOutline.classList.remove('active');
+              els.btnToggleOutline?.classList.remove('active');
             });
             els.outlineList.appendChild(div);
           }
@@ -1009,6 +1241,36 @@
      Event Listeners & Toolbar Handlers
      -------------------------------------------------------------------------- */
   function setupEventListeners() {
+    // Cover and End page fullscreen badge handlers (matching uploaded screenshot)
+    els.coverFullscreenBadge = document.getElementById('cover-fullscreen-badge');
+    if (els.coverFullscreenBadge) {
+      els.coverFullscreenBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        els.btnFullscreen.click();
+      });
+    }
+
+    els.endFullscreenBadge = document.getElementById('end-fullscreen-badge');
+    if (els.endFullscreenBadge) {
+      els.endFullscreenBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        els.btnFullscreen.click();
+      });
+    }
+
+    // Direct page click-to-turn handlers
+    els.pageRightWrapper?.addEventListener('click', (e) => {
+      if (e.target.closest('#cover-fullscreen-badge')) return;
+      if (state.isFlipping || state.zoomLevel > 1) return;
+      flipToNext();
+    });
+
+    els.pageLeftWrapper?.addEventListener('click', (e) => {
+      if (e.target.closest('#end-fullscreen-badge')) return;
+      if (state.isFlipping || state.zoomLevel > 1) return;
+      flipToPrev();
+    });
+
     // Navigation buttons
     els.btnNext.addEventListener('click', flipToNext);
     els.btnPrev.addEventListener('click', flipToPrev);
@@ -1027,12 +1289,14 @@
       updateNavigationUI();
     });
 
-    // Spread mode toggle
-    els.btnToggleSpread.addEventListener('click', () => {
-      state.userForcedSingle = !state.userForcedSingle;
-      checkResponsiveLayout();
-      renderCurrentSpread();
-    });
+    // Spread mode toggle (if present)
+    if (els.btnToggleSpread) {
+      els.btnToggleSpread.addEventListener('click', () => {
+        state.userForcedSingle = !state.userForcedSingle;
+        checkResponsiveLayout();
+        renderCurrentSpread();
+      });
+    }
 
     // Sound toggle
     els.btnSound.addEventListener('click', () => {
@@ -1061,62 +1325,62 @@
     });
 
     // Search Flyout
-    els.btnToggleSearch.addEventListener('click', () => {
+    els.btnToggleSearch?.addEventListener('click', () => {
       const isOpen = els.searchPanel.classList.toggle('open');
-      els.btnToggleSearch.classList.toggle('active', isOpen);
+      els.btnToggleSearch?.classList.toggle('active', isOpen);
       if (isOpen) {
         els.outlinePanel.classList.remove('open');
-        els.btnToggleOutline.classList.remove('active');
+        els.btnToggleOutline?.classList.remove('active');
         els.searchQueryInput.focus();
       }
     });
 
-    els.btnCloseSearch.addEventListener('click', () => {
+    els.btnCloseSearch?.addEventListener('click', () => {
       els.searchPanel.classList.remove('open');
-      els.btnToggleSearch.classList.remove('active');
+      els.btnToggleSearch?.classList.remove('active');
     });
 
-    els.searchQueryInput.addEventListener('keydown', (e) => {
+    els.searchQueryInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         executeSearch(els.searchQueryInput.value);
       }
     });
 
-    els.btnSearchExec.addEventListener('click', () => {
+    els.btnSearchExec?.addEventListener('click', () => {
       executeSearch(els.searchQueryInput.value);
     });
 
     // Table of Contents Flyout
-    els.btnToggleOutline.addEventListener('click', () => {
+    els.btnToggleOutline?.addEventListener('click', () => {
       const isOpen = els.outlinePanel.classList.toggle('open');
-      els.btnToggleOutline.classList.toggle('active', isOpen);
+      els.btnToggleOutline?.classList.toggle('active', isOpen);
       if (isOpen) {
         els.searchPanel.classList.remove('open');
-        els.btnToggleSearch.classList.remove('active');
+        els.btnToggleSearch?.classList.remove('active');
       }
     });
 
-    els.btnCloseOutline.addEventListener('click', () => {
+    els.btnCloseOutline?.addEventListener('click', () => {
       els.outlinePanel.classList.remove('open');
-      els.btnToggleOutline.classList.remove('active');
+      els.btnToggleOutline?.classList.remove('active');
     });
 
     // Thumbnails Drawer
-    els.btnToggleThumbs.addEventListener('click', () => {
+    els.btnToggleThumbs?.addEventListener('click', () => {
       const isOpen = els.thumbsDrawer.classList.toggle('open');
-      els.btnToggleThumbs.classList.toggle('active', isOpen);
+      els.btnToggleThumbs?.classList.toggle('active', isOpen);
       if (isOpen) {
         highlightActiveThumbnail();
       }
     });
 
-    els.btnCloseThumbs.addEventListener('click', () => {
+    els.btnCloseThumbs?.addEventListener('click', () => {
       els.thumbsDrawer.classList.remove('open');
-      els.btnToggleThumbs.classList.remove('active');
+      els.btnToggleThumbs?.classList.remove('active');
     });
 
     // Autoplay / Slideshow
-    els.btnAutoplay.addEventListener('click', toggleAutoplay);
+    els.btnAutoplay?.addEventListener('click', toggleAutoplay);
 
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
@@ -1143,11 +1407,11 @@
         toggleAutoplay();
       } else if (e.key === 'Escape') {
         els.searchPanel.classList.remove('open');
-        els.btnToggleSearch.classList.remove('active');
+        els.btnToggleSearch?.classList.remove('active');
         els.outlinePanel.classList.remove('open');
-        els.btnToggleOutline.classList.remove('active');
+        els.btnToggleOutline?.classList.remove('active');
         els.thumbsDrawer.classList.remove('open');
-        els.btnToggleThumbs.classList.remove('active');
+        els.btnToggleThumbs?.classList.remove('active');
         if (state.zoomLevel > 1) applyZoom(1.0);
       }
     });
@@ -1161,8 +1425,8 @@
 
   function toggleAutoplay() {
     state.autoplayActive = !state.autoplayActive;
-    els.playIcon.classList.toggle('hidden', state.autoplayActive);
-    els.pauseIcon.classList.toggle('hidden', !state.autoplayActive);
+    els.playIcon?.classList.toggle('hidden', state.autoplayActive);
+    els.pauseIcon?.classList.toggle('hidden', !state.autoplayActive);
 
     if (state.autoplayActive) {
       state.autoplayTimer = setInterval(() => {

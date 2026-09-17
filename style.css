@@ -18,7 +18,7 @@
   
   --page-paper-bg: #fcfbfa;
   --page-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 30px 70px rgba(0, 0, 0, 0.6);
-  --spine-shadow: rgba(0, 0, 0, 0.4);
+  --spine-shadow: transparent;
   --book-aspect-ratio: 0.707; /* A4 aspect ratio (width / height = 1 / 1.414) */
   --book-height: min(78vh, 820px);
   --book-width-single: calc(var(--book-height) * var(--book-aspect-ratio));
@@ -586,17 +586,19 @@ html, body {
   height: var(--book-height);
   background: var(--page-paper-bg);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  box-shadow: none;
 }
 
 .page-left {
   border-top-left-radius: 3px;
   border-bottom-left-radius: 3px;
+  border-right: none !important;
 }
 
 .page-right {
   border-top-right-radius: 3px;
   border-bottom-right-radius: 3px;
+  border-left: none !important;
 }
 
 /* Single page view centering */
@@ -611,22 +613,149 @@ html, body {
   justify-content: center;
 }
 
-/* Book Central Spine Crease */
+/* Home / Cover Page Centering - Exactly like the uploaded image */
+.book.is-cover:not(.single-mode) {
+  transform: translateX(-25%);
+}
+
+.book.is-cover .page-left-wrapper,
+.book.is-cover .spine-shadow-left,
+.book.is-cover .stack-left,
+.book.is-cover .book-spine-crease {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.book.is-cover .spine-shadow-right {
+  display: none !important;
+}
+
+.book.is-cover #num-right {
+  display: none !important;
+}
+
+.book.is-cover .page-right-wrapper {
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.55), 0 3px 12px rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+}
+
+.book.is-cover .page-right {
+  border-radius: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.book-viewport.is-cover .book-ambient-shadow {
+  left: 27%;
+  width: 46%;
+  opacity: 0.95;
+}
+
+/* End / Back Cover Page Centering - Exactly like home page */
+.book.is-end:not(.single-mode) {
+  transform: translateX(25%);
+}
+
+.book.is-end .page-right-wrapper,
+.book.is-end .spine-shadow-right,
+.book.is-end .stack-right,
+.book.is-end .book-spine-crease {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.book.is-end .spine-shadow-left {
+  display: none !important;
+}
+
+.book.is-end #num-left {
+  display: none !important;
+}
+
+.book.is-end .page-left-wrapper {
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.55), 0 3px 12px rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+}
+
+.book.is-end .page-left {
+  border-radius: 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.book-viewport.is-end .book-ambient-shadow {
+  left: 27%;
+  width: 46%;
+  opacity: 0.95;
+}
+
+/* Fullscreen hint badge on cover and end page matching uploaded screenshot */
+.cover-fullscreen-badge {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.9);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  z-index: 25;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.cover-fullscreen-badge:hover {
+  background: #000000;
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  transform: translateX(-50%) scale(1.04);
+}
+
+.cover-fullscreen-badge svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.book.is-cover .cover-fullscreen-badge,
+.book.is-end .cover-fullscreen-badge {
+  display: inline-flex;
+}
+
+:fullscreen .cover-fullscreen-badge,
+:-webkit-full-screen .cover-fullscreen-badge {
+  display: none !important;
+}
+
+/* Book Central Spine Crease - Small, elegant fold shadow */
 .book-spine-crease {
   position: absolute;
   left: 50%;
   top: 0;
   bottom: 0;
-  width: 18px;
+  width: 2px;
   transform: translateX(-50%);
-  background: linear-gradient(to right, 
-    rgba(0,0,0,0.28) 0%, 
-    rgba(0,0,0,0.48) 45%, 
-    rgba(0,0,0,0.55) 50%, 
-    rgba(0,0,0,0.48) 55%, 
-    rgba(0,0,0,0.28) 100%);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.08) 0%,
+    rgba(0, 0, 0, 0.22) 15%,
+    rgba(0, 0, 0, 0.26) 50%,
+    rgba(0, 0, 0, 0.22) 85%,
+    rgba(0, 0, 0, 0.08) 100%
+  );
   z-index: 25;
   pointer-events: none;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.12);
 }
 
 /* Page Surface */
@@ -647,24 +776,36 @@ html, body {
   display: block;
 }
 
-/* Page Inner Lighting & Spine Shadow */
+/* Page Inner Lighting & Spine Shadow - Small, subtle realistic gutter shadow */
 .spine-shadow {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 50px;
+  width: 32px;
   pointer-events: none;
   z-index: 8;
 }
 
 .spine-shadow-left {
   right: 0;
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.08) 60%, transparent 100%);
+  background: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0.16) 0%,
+    rgba(0, 0, 0, 0.07) 40%,
+    rgba(0, 0, 0, 0.015) 75%,
+    transparent 100%
+  );
 }
 
 .spine-shadow-right {
   left: 0;
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.08) 60%, transparent 100%);
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.16) 0%,
+    rgba(0, 0, 0, 0.07) 40%,
+    rgba(0, 0, 0, 0.015) 75%,
+    transparent 100%
+  );
 }
 
 .page-highlight {
@@ -673,7 +814,7 @@ html, body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 40%, rgba(0, 0, 0, 0.03) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 40%, rgba(0, 0, 0, 0.02) 100%);
   pointer-events: none;
   z-index: 9;
 }
@@ -696,7 +837,7 @@ html, body {
 .page-num-right { right: 16px; }
 
 /* --------------------------------------------------------------------------
-   Dynamic 3D Flipping Leaf (The Page Turning Mechanism)
+   Dynamic 3D Flipping Leaf (The Page Turning Mechanism - Cylindrical Curl)
    -------------------------------------------------------------------------- */
 .flip-leaf {
   position: absolute;
@@ -707,19 +848,22 @@ html, body {
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   display: none;
-  z-index: 40;
+  z-index: 45;
   pointer-events: none;
+  will-change: transform;
 }
 
 /* Flipping Forward: Origin on Left (Center Spine) */
 .flip-leaf.flip-forward {
   left: 50%;
+  right: auto;
   transform-origin: left center;
 }
 
 /* Flipping Backward: Origin on Right (Center Spine) */
 .flip-leaf.flip-backward {
-  right: 50%;
+  left: 0;
+  right: auto;
   transform-origin: right center;
 }
 
@@ -744,22 +888,37 @@ html, body {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .leaf-front {
   transform: rotateY(0deg);
-  border-top-right-radius: 3px;
-  border-bottom-right-radius: 3px;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.22);
 }
 
 .leaf-back {
   transform: rotateY(180deg);
-  border-top-left-radius: 3px;
-  border-bottom-left-radius: 3px;
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.22);
 }
 
-/* Dynamic shadows across the 3D rotating leaf */
+/* Under-leaf Dynamic Cast Shadow across book spread */
+.flip-cast-shadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  pointer-events: none;
+  z-index: 35;
+  display: none;
+  opacity: 0;
+  mix-blend-mode: multiply;
+  transition: opacity 0.05s ease;
+}
+
+/* Dynamic cylindrical highlight and shadows across the 3D rotating leaf */
 .dynamic-shadow {
   position: absolute;
   top: 0;
@@ -767,18 +926,17 @@ html, body {
   right: 0;
   bottom: 0;
   pointer-events: none;
-  z-index: 12;
+  z-index: 15;
+  opacity: 0;
   transition: opacity 0.05s linear;
 }
 
 .shadow-front {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, 0.2) 100%);
-  opacity: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.25) 0%, rgba(255, 255, 255, 0.6) 50%, rgba(0, 0, 0, 0.2) 100%);
 }
 
 .shadow-back {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, 0.2) 100%);
-  opacity: 0;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.25) 0%, rgba(255, 255, 255, 0.6) 50%, rgba(0, 0, 0, 0.2) 100%);
 }
 
 /* Interactive Drag Hotspot Zones */
